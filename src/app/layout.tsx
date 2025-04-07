@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
+import { WalletComponent } from "@/lib/WalletComponent";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -24,11 +25,12 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <header>
-              <Header />
-            </header>
-            <main className="min-h-screen">{children}</main>
-            <footer></footer>
+            <WalletComponent>
+              <header>
+                <Header />
+              </header>
+              <main className="min-h-screen">{children}</main>
+            </WalletComponent>
           </ThemeProvider>
         </body>
       </html>
