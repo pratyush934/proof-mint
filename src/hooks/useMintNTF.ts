@@ -1,214 +1,71 @@
 "use client";
 
-import {
-    createAssociatedTokenAccountInstruction,
-    createInitializeMintInstruction,
-    createMintToInstruction,
-    getAccount,
-    getAssociatedTokenAddress,
-    getMinimumBalanceForRentExemptMint,
-    TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
-
-import {
-    createCreateMetadataAccountV3Instruction,
-    PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID,
-} from "@metaplex-foundation/mpl-token-metadata";
-
-import {
-    Connection,
-    Keypair,
-    PublicKey,
-    SystemProgram,
-    Transaction,
-} from "@solana/web3.js";
-
+import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useState } from "react";
+import { Connection } from "@solana/web3.js";
+import { useCallback } from "react";
+
+// Define the return type for mintNFT
+interface MintResult {
+  success: boolean;
+  mintAddress?: string;
+  tokenAddress?: string;
+  txSignature?: string;
+  error?: string;
+}
+
+const SOLANA_CONNECTION = new Connection(
+  "https://api.devnet.solana.com",
+  "confirmed"
+);
 
 export const useMintNFT = () => {
-  const { publicKey, signTransaction } = useWallet();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const wallet = useWallet();
+  const { publicKey, signTransaction } = wallet;
 
-  const mintNFT = async (
-    metadataUri: string,
-    name: string,
-    symbol = "IPNFT"
-  ) => {
-    if (!publicKey || !signTransaction) {
-      setError("Wallet not connected");
-      throw new Error("Wallet not connected");
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const connection = new Connection(
-        "https://api.devnet.solana.com",
-        "confirmed"
-      );
-      const mintKeypair = Keypair.generate();
-      const lamports = await getMinimumBalanceForRentExemptMint(connection);
-
-      // 1. Create Mint Account + Initialize Mint
-      const createMintIx = SystemProgram.createAccount({
-        fromPubkey: publicKey,
-        newAccountPubkey: mintKeypair.publicKey,
-        lamports,
-        space: 82,
-        programId: TOKEN_PROGRAM_ID,
-      });
-
-      const initMintIx = createInitializeMintInstruction(
-        mintKeypair.publicKey,
-        0,
-        publicKey,
-        publicKey
-      );
-
-      const tx1 = new Transaction().add(createMintIx, initMintIx);
-      tx1.feePayer = publicKey;
-      tx1.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-      tx1.partialSign(mintKeypair);
-      const signedTx1 = await signTransaction(tx1);
-      const txId1 = await connection.sendRawTransaction(signedTx1.serialize());
-      await connection.confirmTransaction(txId1, "confirmed");
-
-      // 2. Create Associated Token Account - MANUAL APPROACH
-      // First, find the associated token address
-      const associatedTokenAddress = await getAssociatedTokenAddress(
-        mintKeypair.publicKey,
-        publicKey
-      );
-
-      // Try to get the account to see if it exists
-      let tokenAccount;
+  const mintNFT = useCallback(
+    async (metadataUrl: string, name: string): Promise<MintResult> => {
       try {
-        tokenAccount = await getAccount(connection, associatedTokenAddress);
+        console.log("Starting NFT minting process...");
+
+        if (!publicKey || !signTransaction) {
+          console.error("Wallet not connected or cannot sign");
+          return { success: false, error: "Wallet not connected or cannot sign." };
+        }
+
+        console.log("Connected wallet:", publicKey.toString());
+        console.log("Metadata URL:", metadataUrl);
+        console.log("NFT Name:", name);
+
+        const metaplex = Metaplex.make(SOLANA_CONNECTION).use(
+          walletAdapterIdentity(wallet)
+        );
+
+        const { nft, response } = await metaplex.nfts().create({
+          uri: metadataUrl,
+          name,
+          symbol: "NFT",
+          sellerFeeBasisPoints: 0,
+          isMutable: true,
+        });
+
+        console.log("NFT minted:", nft);
+        return {
+          success: true,
+          mintAddress: nft.mint.address.toString(),
+          tokenAddress: nft.address.toString(),
+          txSignature: response.signature,
+        };
       } catch (error) {
-        // If account doesn't exist, create it
-        const createATAIx = createAssociatedTokenAccountInstruction(
-          publicKey, // payer
-          associatedTokenAddress, // ATA address
-          publicKey, // owner
-          mintKeypair.publicKey // mint
-        );
-
-        const createATATx = new Transaction().add(createATAIx);
-        createATATx.feePayer = publicKey;
-        createATATx.recentBlockhash = (
-          await connection.getLatestBlockhash()
-        ).blockhash;
-
-        const signedCreateATATx = await signTransaction(createATATx);
-        const createATASig = await connection.sendRawTransaction(
-          signedCreateATATx.serialize()
-        );
-        await connection.confirmTransaction(createATASig, "confirmed");
-
-        tokenAccount = {
-          address: associatedTokenAddress,
-          mint: mintKeypair.publicKey,
+        console.error("Error in mintNFT:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error occurred during minting",
         };
       }
+    },
+    [publicKey, signTransaction]
+  );
 
-      // 3. Mint to your wallet (1 token)
-      const mintIx = createMintToInstruction(
-        mintKeypair.publicKey, // Mint address
-        associatedTokenAddress, // Destination (ATA)
-        publicKey, // Authority (your wallet)
-        1 // Amount
-      );
-
-      const mintTx = new Transaction().add(mintIx);
-      mintTx.feePayer = publicKey;
-      mintTx.recentBlockhash = (
-        await connection.getLatestBlockhash()
-      ).blockhash;
-
-      // Only need to sign with mintKeypair if it's the mint authority
-      if (mintKeypair.publicKey.equals(publicKey)) {
-        mintTx.partialSign(mintKeypair);
-      }
-
-      const signedMintTx = await signTransaction(mintTx);
-      const mintSig = await connection.sendRawTransaction(
-        signedMintTx.serialize()
-      );
-      await connection.confirmTransaction(mintSig, "confirmed");
-
-      // 4. Create Metadata PDA
-      const [metadataPDA] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-          mintKeypair.publicKey.toBuffer(),
-        ],
-        TOKEN_METADATA_PROGRAM_ID
-      );
-
-      const metadataIx = createCreateMetadataAccountV3Instruction(
-        {
-          metadata: metadataPDA,
-          mint: mintKeypair.publicKey,
-          mintAuthority: publicKey,
-          payer: publicKey,
-          updateAuthority: publicKey,
-        },
-        {
-          createMetadataAccountArgsV3: {
-            data: {
-              name,
-              symbol,
-              uri: metadataUri,
-              sellerFeeBasisPoints: 0,
-              creators: [
-                {
-                  address: publicKey,
-                  verified: true,
-                  share: 100,
-                },
-              ],
-              collection: null,
-              uses: null,
-            },
-            isMutable: true,
-            collectionDetails: null,
-          },
-        }
-      );
-
-      const metadataTx = new Transaction().add(metadataIx);
-      metadataTx.feePayer = publicKey;
-      metadataTx.recentBlockhash = (
-        await connection.getLatestBlockhash()
-      ).blockhash;
-      const signedMetadataTx = await signTransaction(metadataTx);
-      const metadataSig = await connection.sendRawTransaction(
-        signedMetadataTx.serialize()
-      );
-      await connection.confirmTransaction(metadataSig, "confirmed");
-
-      return {
-        success: true,
-        mintAddress: mintKeypair.publicKey.toBase58(),
-        tokenAccount: associatedTokenAddress.toBase58(),
-        metadataPDA: metadataPDA.toBase58(),
-        txId1,
-        mintSig,
-        metadataSig,
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      setError(errorMessage);
-      console.error("Mint error:", err);
-      return { success: false, error: errorMessage };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return { mintNFT, isLoading, error };
+  return { mintNFT };
 };

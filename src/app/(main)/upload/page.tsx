@@ -1,6 +1,9 @@
 "use client";
 
 import MintButton from "@/components/MintButton";
+// import MintButton from "@/components/MintButton";
+
+import WalletDebug from "@/components/WalletDebug";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -40,7 +43,14 @@ const IPProtectForm = () => {
         setSuccess(true); // Set success to true if the API call succeeds
         setName(result?.ipName);
         setMetaDataUrl(result?.metadata.url);
-        console.log("There is a successMessage for the sake god's sake", name, "----->" , metadataUrl, "----->", success);
+        console.log(
+          "There is a successMessage for the sake god's sake",
+          name,
+          "----->",
+          metadataUrl,
+          "----->",
+          success
+        );
 
         reset();
       } else {
@@ -48,13 +58,16 @@ const IPProtectForm = () => {
         setSuccess(false); // Set success to false if the API call fails
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.log("Error:", error);
       setSuccess(false); // Set success to false in case of an exception
     }
   };
 
   return (
     <div className="container space-y-4 mx-auto my-5 flex flex-row items-center justify-center ">
+      <div className="m-4 space-x-10">
+        <WalletDebug />
+      </div>
       {success ? (
         <MintButton metadataUrl={metadataUrl} name={name} />
       ) : (

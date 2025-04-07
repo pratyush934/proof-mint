@@ -23,7 +23,10 @@ const Header = () => {
         {/* Wallet or Sign-In Section */}
         <div className="flex items-center sapce-x-4 justify-between">
           <SignedIn>
-            <WalletComponent />
+            <WalletComponent>
+              {/* Add any valid children here */}
+              <div></div>
+            </WalletComponent>
           </SignedIn>
 
           <SignedOut>
