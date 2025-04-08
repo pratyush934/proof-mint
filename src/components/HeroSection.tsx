@@ -1,4 +1,3 @@
-// https://explorer.solana.com/address/9VYSUizJsyCt8s6ezWsVLQZKmHwVbNgweyB5y88SfgGn?cluster=devnet
 
 "use client"
 

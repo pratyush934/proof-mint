@@ -43,14 +43,14 @@ const IPProtectForm = () => {
         setSuccess(true); // Set success to true if the API call succeeds
         setName(result?.ipName);
         setMetaDataUrl(result?.metadata.url);
-        console.log(
-          "There is a successMessage for the sake god's sake",
-          name,
-          "----->",
-          metadataUrl,
-          "----->",
-          success
-        );
+        // console.log(
+        //   "There is a successMessage for the sake god's sake",
+        //   name,
+        //   "----->",
+        //   metadataUrl,
+        //   "----->",
+        //   success
+        // );
 
         reset();
       } else {
