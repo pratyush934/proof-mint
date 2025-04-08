@@ -4,7 +4,9 @@ import MintButton from "@/components/MintButton";
 // import MintButton from "@/components/MintButton";
 
 import WalletDebug from "@/components/WalletDebug";
-import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 type FormData = {
@@ -14,6 +16,16 @@ type FormData = {
 };
 
 const IPProtectForm = () => {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      // alert("you must be signed in");
+      router.push("/");
+    }
+  }, [isSignedIn, router]);
+
   const {
     register,
     handleSubmit,
