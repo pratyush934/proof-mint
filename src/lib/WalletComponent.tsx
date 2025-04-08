@@ -16,11 +16,11 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 
 export const WalletComponent = ({
   children,
+  showButtons = false, // Add a prop to control button visibility
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  showButtons?: boolean;
 }) => {
-  // const network = WalletAdapterNetwork.Devnet;
-
   const endpoint = useMemo(() => "https://api.devnet.solana.com", []);
 
   const wallets = useMemo(() => [new UnsafeBurnerWalletAdapter()], []);
@@ -31,10 +31,12 @@ export const WalletComponent = ({
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             {children}
-            <div className="flex flex-row items-center justify-between space-x-2 m-2">
-              <WalletMultiButton />
-              <WalletDisconnectButton />
-            </div>
+            {showButtons && ( // Conditionally render the wallet buttons
+              <div className="flex flex-row items-center justify-between space-x-2 m-2">
+                <WalletMultiButton />
+                <WalletDisconnectButton />
+              </div>
+            )}
           </WalletModalProvider>
         </WalletProvider>
       </ConnectionProvider>
